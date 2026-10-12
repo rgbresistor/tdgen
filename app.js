@@ -49,29 +49,32 @@ async function requestInitialPermissions() {
 
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     try {
-      try {
-        const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        videoStream.getTracks().forEach((track) => track.stop());
-      } catch (vErr) {
-        console.warn('Izin kamera ditolak/dilewati:', vErr);
-      }
-      try {
-        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioStream.getTracks().forEach((track) => track.stop());
-      } catch (aErr) {
-        console.warn('Izin mikrofon ditolak/dilewati:', aErr);
-      }
+      // Minta izin secara bersamaan untuk mencegah browser nge-hang/stuck
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: true, 
+        audio: true 
+      });
+      
+      // Matikan indikator kamera/mic setelah izin didapat
+      stream.getTracks().forEach((track) => track.stop());
     } catch (err) {
-      console.warn('Gagal meminta izin:', err);
+      console.warn('Izin kamera/mikrofon ditolak atau dibatasi:', err);
     } finally {
-      // Beralih ke form identitas nama & ID
-      if ($('modalStepPermission')) $('modalStepPermission').classList.add('hidden');
-      if ($('modalStepIdentity')) $('modalStepIdentity').classList.remove('hidden');
+      // PENTING: Beralih ke form identitas apa pun hasil izinnya (sukses/gagal)
+      const step1 = $('modalStepPermission');
+      const step2 = $('modalStepIdentity');
+      
+      if (step1) step1.classList.add('hidden');
+      if (step2) step2.classList.remove('hidden');
     }
   } else {
-    if ($('modalStepPermission')) $('modalStepPermission').classList.add('hidden');
-    if ($('modalStepIdentity')) $('modalStepIdentity').classList.remove('hidden');
-    setPhotoMsg('Browser tidak mendukung WebRTC. Gunakan kamera bawaan HP.');
+    // Jika browser tidak mendukung (misal dibuka tanpa HTTPS)
+    const step1 = $('modalStepPermission');
+    const step2 = $('modalStepIdentity');
+    
+    if (step1) step1.classList.add('hidden');
+    if (step2) step2.classList.remove('hidden');
+    setPhotoMsg('Browser tidak mendukung akses langsung. Gunakan kamera bawaan HP.');
   }
 }
 
