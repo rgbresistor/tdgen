@@ -7,7 +7,7 @@ const $ = (id) => document.getElementById(id);
 // Validasi config + buat klien Supabase
 let sb = null;
 const configured =
-  /^https:\/\/.+\.supabase\.co\/?$/.test(SUPABASE_URL) && SUPABASE_ANON_KEY.length > 100;
+  typeof SUPABASE_URL !== 'undefined' && /^https:\/\/.+\.supabase\.co\/?$/.test(SUPABASE_URL) && SUPABASE_ANON_KEY.length > 100;
 if (configured) {
   try {
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -15,14 +15,18 @@ if (configured) {
     console.error('Gagal membuat klien Supabase:', e);
   }
 }
-if (!sb) $('configWarn').classList.remove('hidden');
+if (!sb) {
+  const warnEl = $('configWarn');
+  if (warnEl) warnEl.classList.remove('hidden');
+}
 
 let photoBlob = null, photoExt = 'jpg';
-let audioBlob = null, audioType = '', audioExt = 'm4a';
+let audioBlob = null, audioType = 'audio/wav', audioExt = 'wav';
 let photoUrl = null;
 
 function setMsg(text, isError) {
   const el = $('msg');
+  if (!el) return;
   el.textContent = text || '';
   el.classList.toggle('error', !!isError);
 }
@@ -35,35 +39,40 @@ function uid() {
 /* ---------------- Modal & Request Izin Awal ---------------- */
 async function requestInitialPermissions() {
   const btn = $('grantPermissionBtn');
+  if (!btn || btn.disabled) return;
+
   btn.disabled = true;
   btn.textContent = 'Meminta izin...';
 
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     try {
-      // Minta izin Kamera & Mikrofon sekaligus lewat dialog browser resmi
-      const initStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true
-      });
+      // 1. Minta izin Kamera
+      try {
+        const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        videoStream.getTracks().forEach((track) => track.stop());
+      } catch (vErr) {
+        console.warn('Izin kamera ditolak/dilewati:', vErr);
+      }
 
-      // Begitu disetujui, matikan stream sementara
-      initStream.getTracks().forEach((track) => track.stop());
-
-      // Sembunyikan modal
-      $('permissionModal').classList.add('hidden');
+      // 2. Minta izin Mikrofon
+      try {
+        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioStream.getTracks().forEach((track) => track.stop());
+      } catch (aErr) {
+        console.warn('Izin mikrofon ditolak/dilewati:', aErr);
+      }
     } catch (err) {
-      console.warn('Izin ditolak atau dibatasi:', err);
-      $('permissionModal').classList.add('hidden');
-      setPhotoMsg('Akses kamera/mikrofon belum diizinkan secara penuh. Kamu bisa menggunakan opsi Kamera Bawaan HP.');
+      console.warn('Gagal meminta izin:', err);
+    } finally {
+      const modal = $('permissionModal');
+      if (modal) modal.classList.add('hidden');
     }
   } else {
-    $('permissionModal').classList.add('hidden');
+    const modal = $('permissionModal');
+    if (modal) modal.classList.add('hidden');
+    setPhotoMsg('Browser tidak mendukung WebRTC. Gunakan kamera bawaan HP.');
   }
 }
-
-// Pasang event listener ke tombol modal
-const grantBtn = $('grantPermissionBtn');
-if (grantBtn) grantBtn.addEventListener('click', requestInitialPermissions);
 
 /* ---------------- Foto ---------------- */
 function compressImage(file) {
@@ -87,10 +96,14 @@ function compressImage(file) {
 function showPhoto() {
   if (photoUrl) URL.revokeObjectURL(photoUrl);
   photoUrl = photoBlob ? URL.createObjectURL(photoBlob) : null;
-  $('photoPreview').src = photoUrl || '';
-  $('photoFrame').classList.toggle('has-img', !!photoBlob);
-  $('photoRemove').classList.toggle('hidden', !photoBlob);
-  $('photoBtn').textContent = photoBlob ? 'Ambil ulang' : 'Ambil foto';
+  const prev = $('photoPreview');
+  if (prev) prev.src = photoUrl || '';
+  const frame = $('photoFrame');
+  if (frame) frame.classList.toggle('has-img', !!photoBlob);
+  const rm = $('photoRemove');
+  if (rm) rm.classList.toggle('hidden', !photoBlob);
+  const btn = $('photoBtn');
+  if (btn) btn.textContent = photoBlob ? 'Ambil ulang' : 'Ambil foto';
 }
 
 async function handlePhoto(e) {
@@ -108,27 +121,29 @@ async function handlePhoto(e) {
   e.target.value = '';
 }
 
-$('photoInput').addEventListener('change', handlePhoto);
-$('photoGalleryInput').addEventListener('change', handlePhoto);
-$('photoGalleryBtn').addEventListener('click', () => $('photoGalleryInput').click());
-$('photoRemove').addEventListener('click', () => { photoBlob = null; showPhoto(); });
-
 /* ---- Kamera langsung di halaman ---- */
 let camStream = null;
 
-function setPhotoMsg(text) { $('photoMsg').textContent = text || ''; }
+function setPhotoMsg(text) { 
+  const el = $('photoMsg');
+  if (el) el.textContent = text || ''; 
+}
 
 function setCamUI(live) {
-  $('photoFrame').classList.toggle('live', live);
-  $('camControls').classList.toggle('hidden', !live);
-  $('photoRow').classList.toggle('hidden', live);
+  const frame = $('photoFrame');
+  if (frame) frame.classList.toggle('live', live);
+  const ctrl = $('camControls');
+  if (ctrl) ctrl.classList.toggle('hidden', !live);
+  const row = $('photoRow');
+  if (row) row.classList.toggle('hidden', live);
 }
 
 async function openCamera() {
   setMsg('');
   setPhotoMsg('');
   if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
-    $('photoInput').click();
+    const pi = $('photoInput');
+    if (pi) pi.click();
     return;
   }
   try {
@@ -143,33 +158,31 @@ async function openCamera() {
     }
   } catch (err) {
     const name = (err && err.name) || 'Error';
-    console.error('Kamera gagal:', err);
     let why = 'Kamera tidak bisa dibuka (' + name + ').';
     if (name === 'NotAllowedError' || name === 'SecurityError') {
-      why = 'Izin kamera ditolak (' + name + '). Aktifkan izin Kamera untuk situs ini di pengaturan browser.';
-    } else if (name === 'NotReadableError') {
-      why = 'Kamera sedang dipakai aplikasi lain (' + name + '). Tutup aplikasi kamera lain lalu coba lagi.';
-    } else if (name === 'NotFoundError') {
-      why = 'Kamera tidak ditemukan di perangkat ini (' + name + ').';
+      why = 'Izin kamera ditolak (' + name + '). Aktifkan izin Kamera di pengaturan browser.';
     }
     setPhotoMsg(why + ' Coba tombol "Kamera bawaan HP" atau "Pilih dari galeri".');
     return;
   }
   const v = $('camVideo');
-  v.srcObject = camStream;
-  try { await v.play(); } catch (e) {}
+  if (v) {
+    v.srcObject = camStream;
+    try { await v.play(); } catch (e) {}
+  }
   setCamUI(true);
 }
 
 function closeCamera() {
   if (camStream) { camStream.getTracks().forEach((t) => t.stop()); camStream = null; }
-  $('camVideo').srcObject = null;
+  const v = $('camVideo');
+  if (v) v.srcObject = null;
   setCamUI(false);
 }
 
 function snapPhoto() {
   const v = $('camVideo');
-  if (!v.videoWidth) { setPhotoMsg('Kamera belum siap, tunggu sebentar.'); return; }
+  if (!v || !v.videoWidth) { setPhotoMsg('Kamera belum siap, tunggu sebentar.'); return; }
   const scale = Math.min(1, MAX_IMG_PX / Math.max(v.videoWidth, v.videoHeight));
   const c = document.createElement('canvas');
   c.width = Math.round(v.videoWidth * scale);
@@ -184,25 +197,57 @@ function snapPhoto() {
   }, 'image/jpeg', 0.85);
 }
 
-$('photoBtn').addEventListener('click', openCamera);
-$('photoNativeBtn').addEventListener('click', () => { setPhotoMsg(''); $('photoInput').click(); });
-$('camShot').addEventListener('click', snapPhoto);
-$('camCancel').addEventListener('click', closeCamera);
+/* ---------------- Audio WAV Encoder & Converter ---------------- */
+function writeString(view, offset, string) {
+  for (let i = 0; i < string.length; i++) {
+    view.setUint8(offset + i, string.charCodeAt(i));
+  }
+}
 
-/* ---------------- Suara ---------------- */
+function bufferToWav(buffer) {
+  const numChannels = 1; // Mono
+  const sampleRate = buffer.sampleRate;
+  const format = 1; // PCM
+  const bitDepth = 16;
+  const samples = buffer.getChannelData(0);
+
+  const bufferLength = samples.length * 2;
+  const headerLength = 44;
+  const outBuffer = new ArrayBuffer(headerLength + bufferLength);
+  const view = new DataView(outBuffer);
+
+  /* RIFF WAVE Header */
+  writeString(view, 0, 'RIFF');
+  view.setUint32(4, 36 + bufferLength, true);
+  writeString(view, 8, 'WAVE');
+
+  /* FMT Sub-chunk */
+  writeString(view, 12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, format, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * numChannels * 2, true);
+  view.setUint16(32, numChannels * 2, true);
+  view.setUint16(34, bitDepth, true);
+
+  /* Data Sub-chunk */
+  writeString(view, 36, 'data');
+  view.setUint32(40, bufferLength, true);
+
+  /* Tulis PCM 16-bit Samples */
+  let offset = 44;
+  for (let i = 0; i < samples.length; i++, offset += 2) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+  }
+
+  return new Blob([outBuffer], { type: 'audio/wav' });
+}
+
+/* ---------------- Suara Handler ---------------- */
 const canRecord = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
 let stream = null, recorder = null, chunks = [], timer = null, startedAt = 0, audioObjUrl = null;
-
-function extFromType(type, fallbackName) {
-  const t = (type || '').toLowerCase();
-  if (t.includes('mp4') || t.includes('aac') || t.includes('m4a')) return 'm4a';
-  if (t.includes('webm')) return 'webm';
-  if (t.includes('ogg')) return 'ogg';
-  if (t.includes('mpeg') || t.includes('mp3')) return 'mp3';
-  if (t.includes('wav')) return 'wav';
-  const fromName = (fallbackName || '').split('.').pop();
-  return fromName && fromName.length <= 4 ? fromName.toLowerCase() : 'm4a';
-}
 
 function pickMime() {
   const options = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
@@ -217,22 +262,23 @@ function fmt(sec) {
 function showAudioState() {
   const has = !!audioBlob;
   if (canRecord) {
-    $('recIdle').classList.toggle('hidden', has || !!recorder);
-    $('recActive').classList.toggle('hidden', !recorder);
-    $('recDone').classList.toggle('hidden', !has);
-    $('recFallback').classList.add('hidden');
+    if ($('recIdle')) $('recIdle').classList.toggle('hidden', has || !!recorder);
+    if ($('recActive')) $('recActive').classList.toggle('hidden', !recorder);
+    if ($('recDone')) $('recDone').classList.toggle('hidden', !has);
+    if ($('recFallback')) $('recFallback').classList.add('hidden');
   } else {
-    $('recIdle').classList.add('hidden');
-    $('recActive').classList.add('hidden');
-    $('recDone').classList.toggle('hidden', !has);
-    $('recFallback').classList.toggle('hidden', has);
+    if ($('recIdle')) $('recIdle').classList.add('hidden');
+    if ($('recActive')) $('recActive').classList.add('hidden');
+    if ($('recDone')) $('recDone').classList.toggle('hidden', !has);
+    if ($('recFallback')) $('recFallback').classList.toggle('hidden', has);
   }
   if (audioObjUrl) { URL.revokeObjectURL(audioObjUrl); audioObjUrl = null; }
-  if (has) {
+  const prev = $('audioPreview');
+  if (has && prev) {
     audioObjUrl = URL.createObjectURL(audioBlob);
-    $('audioPreview').src = audioObjUrl;
-  } else {
-    $('audioPreview').removeAttribute('src');
+    prev.src = audioObjUrl;
+  } else if (prev) {
+    prev.removeAttribute('src');
   }
 }
 
@@ -241,29 +287,47 @@ async function startRec() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (err) {
-    setMsg('Mikrofon tidak bisa dipakai. Izinkan akses mikrofon di pengaturan browser, lalu coba lagi.', true);
+    setMsg('Mikrofon tidak bisa dipakai. Izinkan akses mikrofon di pengaturan browser.', true);
     return;
   }
   const mime = pickMime();
   recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
   chunks = [];
   recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
-  recorder.onstop = () => {
+  
+  recorder.onstop = async () => {
     clearInterval(timer);
-    stream.getTracks().forEach((t) => t.stop());
-    const type = recorder.mimeType || mime || 'audio/mp4';
-    audioBlob = new Blob(chunks, { type });
-    audioType = type.split(';')[0];
-    audioExt = extFromType(audioType);
+    if (stream) stream.getTracks().forEach((t) => t.stop());
+
+    const rawBlob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+
+    try {
+      // Decode audio WebM/MP4 ke AudioBuffer
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const arrayBuffer = await rawBlob.arrayBuffer();
+      const decodedBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+      // Encode ke WAV
+      audioBlob = bufferToWav(decodedBuffer);
+      audioType = 'audio/wav';
+      audioExt = 'wav';
+    } catch (err) {
+      console.warn('Gagal dekode ke WAV, menggunakan format asli:', err);
+      audioBlob = rawBlob;
+      audioType = rawBlob.type.split(';')[0];
+      audioExt = 'webm';
+    }
+
     recorder = null;
     showAudioState();
   };
+
   recorder.start();
   startedAt = Date.now();
-  $('recTime').textContent = '0:00';
+  if ($('recTime')) $('recTime').textContent = '0:00';
   timer = setInterval(() => {
     const sec = (Date.now() - startedAt) / 1000;
-    $('recTime').textContent = fmt(sec);
+    if ($('recTime')) $('recTime').textContent = fmt(sec);
     if (sec >= MAX_REC_SECONDS) stopRec();
   }, 250);
   showAudioState();
@@ -275,31 +339,7 @@ function stopRec() {
 
 function clearAudio() { audioBlob = null; showAudioState(); }
 
-$('recStart').addEventListener('click', startRec);
-$('recStop').addEventListener('click', stopRec);
-$('recAgain').addEventListener('click', () => { clearAudio(); startRec(); });
-$('recRemove').addEventListener('click', clearAudio);
-
-$('audioFallbackBtn').addEventListener('click', () => $('audioInput').click());
-$('audioInput').addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  audioBlob = file;
-  audioType = (file.type || 'audio/mp4').split(';')[0];
-  audioExt = extFromType(audioType, file.name);
-  showAudioState();
-  e.target.value = '';
-});
-
-if (!canRecord) {
-  $('audioHint').textContent = 'Rekam cerita singkat atau pilih file audio.';
-}
-showAudioState();
-
-/* ---------------- Teks ---------------- */
-$('teks').addEventListener('input', () => { $('count').textContent = $('teks').value.length; });
-
-/* ---------------- Kirim ---------------- */
+/* ---------------- Kirim Data ke Supabase ---------------- */
 async function uploadFile(path, blob, contentType) {
   const { error } = await sb.storage.from(BUCKET).upload(path, blob, {
     contentType, cacheControl: '3600', upsert: false
@@ -312,41 +352,97 @@ async function submit() {
   closeCamera();
   if (!sb) { setMsg('URL atau anon key Supabase di config.js belum benar.', true); return; }
   if (recorder) { setMsg('Hentikan rekaman dulu sebelum mengirim.', true); return; }
-  const teks = $('teks').value.trim();
+  const teksEl = $('teks');
+  const teks = teksEl ? teksEl.value.trim() : '';
   if (!teks && !photoBlob && !audioBlob) {
     setMsg('Isi minimal satu: foto, suara, atau tulisan.', true);
     return;
   }
   const btn = $('submitBtn');
-  btn.disabled = true;
+  if (btn) btn.disabled = true;
   setMsg('Mengirim. Jangan tutup halaman ini.');
   try {
     const id = uid();
     let foto_url = null, audio_url = null;
     if (photoBlob) foto_url = await uploadFile(id + '/foto.' + photoExt, photoBlob, photoBlob.type || 'image/jpeg');
-    if (audioBlob) audio_url = await uploadFile(id + '/suara.' + audioExt, audioBlob, audioType || 'audio/mp4');
+    if (audioBlob) audio_url = await uploadFile(id + '/suara.' + audioExt, audioBlob, audioType || 'audio/wav');
     const { error } = await sb.from('entries').insert({ teks: teks || null, foto_url, audio_url });
     if (error) throw error;
-    $('formView').classList.add('hidden');
-    $('doneView').classList.remove('hidden');
+    if ($('formView')) $('formView').classList.add('hidden');
+    if ($('doneView')) $('doneView').classList.remove('hidden');
     window.scrollTo(0, 0);
   } catch (err) {
     console.error(err);
     setMsg('Gagal mengirim: ' + (err.message || 'periksa koneksi internet') + '. Coba kirim lagi.', true);
   } finally {
-    btn.disabled = false;
+    if (btn) btn.disabled = false;
   }
 }
 
-$('submitBtn').addEventListener('click', submit);
+/* ---------------- Inisialisasi Event Listeners ---------------- */
+document.addEventListener('DOMContentLoaded', () => {
+  const modalBtn = $('grantPermissionBtn');
+  if (modalBtn) modalBtn.addEventListener('click', requestInitialPermissions);
 
-$('againBtn').addEventListener('click', () => {
-  photoBlob = null; audioBlob = null;
-  setPhotoMsg('');
-  $('teks').value = ''; $('count').textContent = '0';
-  setMsg('');
-  showPhoto(); showAudioState();
-  $('doneView').classList.add('hidden');
-  $('formView').classList.remove('hidden');
-  window.scrollTo(0, 0);
+  // Foto listeners
+  const pi = $('photoInput'); if (pi) pi.addEventListener('change', handlePhoto);
+  const pgi = $('photoGalleryInput'); if (pgi) pgi.addEventListener('change', handlePhoto);
+  const pgb = $('photoGalleryBtn'); if (pgb) pgb.addEventListener('click', () => { if (pgi) pgi.click(); });
+  const pr = $('photoRemove'); if (pr) pr.addEventListener('click', () => { photoBlob = null; showPhoto(); });
+  const pb = $('photoBtn'); if (pb) pb.addEventListener('click', openCamera);
+  const pnb = $('photoNativeBtn'); if (pnb) pnb.addEventListener('click', () => { setPhotoMsg(''); if (pi) pi.click(); });
+  const cs = $('camShot'); if (cs) cs.addEventListener('click', snapPhoto);
+  const cc = $('camCancel'); if (cc) cc.addEventListener('click', closeCamera);
+
+  // Audio listeners
+  const rs = $('recStart'); if (rs) rs.addEventListener('click', startRec);
+  const rst = $('recStop'); if (rst) rst.addEventListener('click', stopRec);
+  const ra = $('recAgain'); if (ra) ra.addEventListener('click', () => { clearAudio(); startRec(); });
+  const rm = $('recRemove'); if (rm) rm.addEventListener('click', clearAudio);
+  const afb = $('audioFallbackBtn');
+  const ai = $('audioInput');
+  if (afb && ai) afb.addEventListener('click', () => ai.click());
+  if (ai) {
+    ai.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      audioBlob = file;
+      audioType = (file.type || 'audio/wav').split(';')[0];
+      audioExt = 'wav';
+      showAudioState();
+      e.target.value = '';
+    });
+  }
+
+  // Teks counter
+  const teksEl = $('teks');
+  if (teksEl) {
+    teksEl.addEventListener('input', () => {
+      const countEl = $('count');
+      if (countEl) countEl.textContent = teksEl.value.length;
+    });
+  }
+
+  // Submit & Reset
+  const sbBtn = $('submitBtn'); if (sbBtn) sbBtn.addEventListener('click', submit);
+  const agBtn = $('againBtn'); 
+  if (agBtn) {
+    agBtn.addEventListener('click', () => {
+      photoBlob = null; audioBlob = null;
+      setPhotoMsg('');
+      if (teksEl) teksEl.value = '';
+      if ($('count')) $('count').textContent = '0';
+      setMsg('');
+      showPhoto(); showAudioState();
+      if ($('doneView')) $('doneView').classList.add('hidden');
+      if ($('formView')) $('formView').classList.remove('hidden');
+      window.scrollTo(0, 0);
+    });
+  }
+
+  if (!canRecord) {
+    const hint = $('audioHint');
+    if (hint) hint.textContent = 'Rekam cerita singkat atau pilih file audio.';
+  }
+  showAudioState();
 });
