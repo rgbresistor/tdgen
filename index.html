@@ -12,7 +12,7 @@
 </head>
 <body>
 
-<!-- Modal Onboarding Pop-up -->
+<!-- Modal Onboarding Pop-up untuk Minta Izin Kamera & Mikrofon -->
 <div id="permissionModal" class="modal-overlay">
   <div class="modal-card">
     <div class="tape" aria-hidden="true"></div>
@@ -30,12 +30,12 @@
   </header>
 
   <div id="configWarn" class="warn hidden">
-    URL dan anon key Supabase belum diisi atau formatnya salah. Buka <code>config.js</code>, lalu isi <code>SUPABASE_URL</code> dan <code>SUPABASE_ANON_KEY</code>.
+    URL dan anon key Supabase belum diisi atau formatnya salah. Buka <code>config.js</code>, lalu isi <code>SUPABASE_URL</code> (contoh: https://xxxx.supabase.co) dan <code>SUPABASE_ANON_KEY</code>.
   </div>
 
   <div id="formView">
     <section>
-      <h2>Foto (Rasio 3:4)</h2>
+      <h2>Foto</h2>
       <p class="hint">Ambil foto langsung dari kamera, atau pilih dari galeri.</p>
       <div class="photo-frame" id="photoFrame">
         <span class="placeholder">Belum ada foto</span>
@@ -83,6 +83,7 @@
         </div>
       </div>
 
+      <!-- Cadangan bila browser tidak mengizinkan rekam langsung -->
       <div class="row hidden" id="recFallback">
         <button type="button" id="audioFallbackBtn">Rekam atau pilih audio</button>
         <input type="file" id="audioInput" accept="audio/*" capture>
