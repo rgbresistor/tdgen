@@ -121,11 +121,11 @@ button:focus-visible, .btn:focus-visible, textarea:focus-visible {
 .full { width: 100%; }
 input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
-/* Update pada .photo-frame di style.css */
+/* Area foto */
 .photo-frame {
   position: relative;
   width: 100%;
-  aspect-ratio: 3 / 4; /* Diubah menjadi Portrait 3:4 */
+  aspect-ratio: 4 / 3;
   border: 2px dashed var(--ink);
   border-radius: 22px;
   background: #fff;
