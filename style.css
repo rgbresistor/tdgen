@@ -140,3 +140,6 @@ textarea {
   font-size: 0.95rem;
   background: #fff;
 }
+
+.photo-msg { margin: 12px 0 0; font-weight: 600; color: var(--alert); }
+.photo-msg:empty { display: none; }

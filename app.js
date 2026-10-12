@@ -84,6 +84,8 @@ $('photoRemove').addEventListener('click', () => { photoBlob = null; showPhoto()
 /* ---- Kamera langsung di halaman ---- */
 let camStream = null;
 
+function setPhotoMsg(text) { $('photoMsg').textContent = text || ''; }
+
 function setCamUI(live) {
   $('photoFrame').classList.toggle('live', live);
   $('camControls').classList.toggle('hidden', !live);
@@ -92,17 +94,34 @@ function setCamUI(live) {
 
 async function openCamera() {
   setMsg('');
+  setPhotoMsg('');
   if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
     $('photoInput').click(); // cara lama sebagai cadangan
     return;
   }
   try {
-    camStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1600 } },
-      audio: false
-    });
+    try {
+      camStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } }, audio: false
+      });
+    } catch (e1) {
+      // Coba lagi tanpa syarat apa pun bila perangkat menolak pengaturan di atas
+      if (e1 && (e1.name === 'OverconstrainedError' || e1.name === 'NotFoundError')) {
+        camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      } else { throw e1; }
+    }
   } catch (err) {
-    setMsg('Kamera tidak bisa dibuka. Izinkan akses kamera untuk situs ini, atau pilih dari galeri.', true);
+    const name = (err && err.name) || 'Error';
+    console.error('Kamera gagal:', err);
+    let why = 'Kamera tidak bisa dibuka (' + name + ').';
+    if (name === 'NotAllowedError' || name === 'SecurityError') {
+      why = 'Izin kamera ditolak (' + name + '). Aktifkan izin Kamera untuk situs ini, dan untuk aplikasi Chrome di Pengaturan Android.';
+    } else if (name === 'NotReadableError') {
+      why = 'Kamera sedang dipakai aplikasi lain (' + name + '). Tutup aplikasi kamera lain lalu coba lagi.';
+    } else if (name === 'NotFoundError') {
+      why = 'Kamera tidak ditemukan di perangkat ini (' + name + ').';
+    }
+    setPhotoMsg(why + ' Coba tombol "Kamera bawaan HP" atau "Pilih dari galeri".');
     return;
   }
   const v = $('camVideo');
@@ -119,14 +138,14 @@ function closeCamera() {
 
 function snapPhoto() {
   const v = $('camVideo');
-  if (!v.videoWidth) { setMsg('Kamera belum siap, tunggu sebentar.', true); return; }
+  if (!v.videoWidth) { setPhotoMsg('Kamera belum siap, tunggu sebentar.'); return; }
   const scale = Math.min(1, MAX_IMG_PX / Math.max(v.videoWidth, v.videoHeight));
   const c = document.createElement('canvas');
   c.width = Math.round(v.videoWidth * scale);
   c.height = Math.round(v.videoHeight * scale);
   c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
   c.toBlob((b) => {
-    if (!b) { setMsg('Gagal mengambil foto, coba lagi.', true); return; }
+    if (!b) { setPhotoMsg('Gagal mengambil foto, coba lagi.'); return; }
     photoBlob = b;
     photoExt = 'jpg';
     closeCamera();
@@ -135,6 +154,7 @@ function snapPhoto() {
 }
 
 $('photoBtn').addEventListener('click', openCamera);
+$('photoNativeBtn').addEventListener('click', () => { setPhotoMsg(''); $('photoInput').click(); });
 $('camShot').addEventListener('click', snapPhoto);
 $('camCancel').addEventListener('click', closeCamera);
 
@@ -292,6 +312,7 @@ $('submitBtn').addEventListener('click', submit);
 
 $('againBtn').addEventListener('click', () => {
   photoBlob = null; audioBlob = null;
+  setPhotoMsg('');
   $('teks').value = ''; $('count').textContent = '0';
   setMsg('');
   showPhoto(); showAudioState();

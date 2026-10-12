@@ -34,6 +34,7 @@
 
       <div class="row" id="photoRow">
         <button type="button" id="photoBtn">Ambil foto</button>
+        <button type="button" class="quiet" id="photoNativeBtn">Kamera bawaan HP</button>
         <button type="button" class="quiet" id="photoGalleryBtn">Pilih dari galeri</button>
         <button type="button" class="quiet hidden" id="photoRemove">Hapus foto</button>
       </div>
@@ -42,6 +43,8 @@
         <button type="button" class="primary" id="camShot">Jepret</button>
         <button type="button" class="quiet" id="camCancel">Batal</button>
       </div>
+
+      <p id="photoMsg" class="photo-msg" role="status" aria-live="polite"></p>
 
       <input type="file" id="photoInput" accept="image/*" capture="environment">
       <input type="file" id="photoGalleryInput" accept="image/*">
