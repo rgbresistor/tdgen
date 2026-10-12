@@ -98,6 +98,10 @@ input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; poin
 .photo-frame.has-img { border-style: solid; }
 .photo-frame.has-img img { display: block; }
 .photo-frame.has-img .placeholder { display: none; }
+.photo-frame video { width: 100%; height: 100%; object-fit: cover; display: none; background: #000; }
+.photo-frame.live { border-style: solid; }
+.photo-frame.live video { display: block; }
+.photo-frame.live .placeholder { display: none; }
 .placeholder { color: var(--muted); text-align: center; padding: 0 20px; font-size: 0.95rem; }
 
 /* Rekaman */

@@ -78,9 +78,65 @@ async function handlePhoto(e) {
 
 $('photoInput').addEventListener('change', handlePhoto);
 $('photoGalleryInput').addEventListener('change', handlePhoto);
-$('photoBtn').addEventListener('click', () => $('photoInput').click());
 $('photoGalleryBtn').addEventListener('click', () => $('photoGalleryInput').click());
 $('photoRemove').addEventListener('click', () => { photoBlob = null; showPhoto(); });
+
+/* ---- Kamera langsung di halaman ---- */
+let camStream = null;
+
+function setCamUI(live) {
+  $('photoFrame').classList.toggle('live', live);
+  $('camControls').classList.toggle('hidden', !live);
+  $('photoRow').classList.toggle('hidden', live);
+}
+
+async function openCamera() {
+  setMsg('');
+  if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+    $('photoInput').click(); // cara lama sebagai cadangan
+    return;
+  }
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1600 } },
+      audio: false
+    });
+  } catch (err) {
+    setMsg('Kamera tidak bisa dibuka. Izinkan akses kamera untuk situs ini, atau pilih dari galeri.', true);
+    return;
+  }
+  const v = $('camVideo');
+  v.srcObject = camStream;
+  try { await v.play(); } catch (e) {}
+  setCamUI(true);
+}
+
+function closeCamera() {
+  if (camStream) { camStream.getTracks().forEach((t) => t.stop()); camStream = null; }
+  $('camVideo').srcObject = null;
+  setCamUI(false);
+}
+
+function snapPhoto() {
+  const v = $('camVideo');
+  if (!v.videoWidth) { setMsg('Kamera belum siap, tunggu sebentar.', true); return; }
+  const scale = Math.min(1, MAX_IMG_PX / Math.max(v.videoWidth, v.videoHeight));
+  const c = document.createElement('canvas');
+  c.width = Math.round(v.videoWidth * scale);
+  c.height = Math.round(v.videoHeight * scale);
+  c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+  c.toBlob((b) => {
+    if (!b) { setMsg('Gagal mengambil foto, coba lagi.', true); return; }
+    photoBlob = b;
+    photoExt = 'jpg';
+    closeCamera();
+    showPhoto();
+  }, 'image/jpeg', 0.85);
+}
+
+$('photoBtn').addEventListener('click', openCamera);
+$('camShot').addEventListener('click', snapPhoto);
+$('camCancel').addEventListener('click', closeCamera);
 
 /* ---------------- Suara ---------------- */
 const canRecord = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
@@ -203,6 +259,7 @@ async function uploadFile(path, blob, contentType) {
 }
 
 async function submit() {
+  closeCamera();
   if (!sb) { setMsg('URL atau anon key Supabase di config.js belum benar.', true); return; }
   if (recorder) { setMsg('Hentikan rekaman dulu sebelum mengirim.', true); return; }
   const teks = $('teks').value.trim();

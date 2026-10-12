@@ -28,13 +28,21 @@
       <p class="hint">Ambil foto langsung dari kamera, atau pilih dari galeri.</p>
       <div class="photo-frame" id="photoFrame">
         <span class="placeholder">Belum ada foto</span>
+        <video id="camVideo" playsinline muted autoplay></video>
         <img id="photoPreview" alt="Pratinjau foto temuanmu">
       </div>
-      <div class="row">
+
+      <div class="row" id="photoRow">
         <button type="button" id="photoBtn">Ambil foto</button>
         <button type="button" class="quiet" id="photoGalleryBtn">Pilih dari galeri</button>
         <button type="button" class="quiet hidden" id="photoRemove">Hapus foto</button>
       </div>
+
+      <div class="row hidden" id="camControls">
+        <button type="button" class="primary" id="camShot">Jepret</button>
+        <button type="button" class="quiet" id="camCancel">Batal</button>
+      </div>
+
       <input type="file" id="photoInput" accept="image/*" capture="environment">
       <input type="file" id="photoGalleryInput" accept="image/*">
     </section>
