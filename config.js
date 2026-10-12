@@ -1,0 +1,3 @@
+// Pengaturan Supabase (Project Settings > API)
+const SUPABASE_URL = 'https://mheurpkpwkwlveitbwdi.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oZXVycGtwd2t3bHZlaXRid2RpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4MTMyNTcsImV4cCI6MjEwNzM4OTI1N30.5bzfbe3zYUEacZO9uKkyQb7EyxTtgFU7pJcMgYJ723w';

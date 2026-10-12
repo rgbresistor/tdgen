@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#10222B">
+<title>Temuan di rute</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header>
+    <div class="tape" aria-hidden="true"></div>
+    <h1>Apa yang kamu temukan di rute ini?</h1>
+    <p>Kirim foto, suara, atau tulisan. Isi salah satu atau semuanya.</p>
+  </header>
+
+  <div id="configWarn" class="warn hidden">
+    URL dan anon key Supabase belum diisi atau formatnya salah. Buka <code>config.js</code>, lalu isi <code>SUPABASE_URL</code> (contoh: https://xxxx.supabase.co) dan <code>SUPABASE_ANON_KEY</code>.
+  </div>
+
+  <div id="formView">
+    <section>
+      <h2>Foto</h2>
+      <p class="hint">Ambil foto langsung dari kamera, atau pilih dari galeri.</p>
+      <div class="photo-frame" id="photoFrame">
+        <span class="placeholder">Belum ada foto</span>
+        <img id="photoPreview" alt="Pratinjau foto temuanmu">
+      </div>
+      <div class="row">
+        <button type="button" id="photoBtn">Ambil foto</button>
+        <button type="button" class="quiet" id="photoGalleryBtn">Pilih dari galeri</button>
+        <button type="button" class="quiet hidden" id="photoRemove">Hapus foto</button>
+      </div>
+      <input type="file" id="photoInput" accept="image/*" capture="environment">
+      <input type="file" id="photoGalleryInput" accept="image/*">
+    </section>
+
+    <section>
+      <h2>Suara</h2>
+      <p class="hint" id="audioHint">Rekam cerita singkat, maksimal 60 detik.</p>
+
+      <div class="row" id="recIdle">
+        <button type="button" id="recStart">Mulai rekam</button>
+      </div>
+
+      <div class="row hidden" id="recActive">
+        <button type="button" id="recStop" class="primary">Berhenti</button>
+        <span class="dot" aria-hidden="true"></span>
+        <span class="rec-status" id="recTime" aria-live="off">0:00</span>
+      </div>
+
+      <div class="hidden" id="recDone">
+        <audio id="audioPreview" controls playsinline></audio>
+        <div class="row">
+          <button type="button" class="quiet" id="recAgain">Rekam ulang</button>
+          <button type="button" class="quiet" id="recRemove">Hapus rekaman</button>
+        </div>
+      </div>
+
+      <!-- Cadangan bila browser tidak mengizinkan rekam langsung (misalnya HTTP biasa) -->
+      <div class="row hidden" id="recFallback">
+        <button type="button" id="audioFallbackBtn">Rekam atau pilih audio</button>
+        <input type="file" id="audioInput" accept="audio/*" capture>
+      </div>
+    </section>
+
+    <section>
+      <h2>Tulisan</h2>
+      <p class="hint">Ceritakan apa yang kamu lihat, dengar, atau rasakan di sini.</p>
+      <textarea id="teks" maxlength="1000" placeholder="Tulis ceritamu di sini"></textarea>
+      <div class="counter"><span id="count">0</span>/1000</div>
+    </section>
+
+    <section>
+      <button type="button" class="primary full" id="submitBtn">Kirim temuan</button>
+      <p id="msg" role="status" aria-live="polite"></p>
+    </section>
+  </div>
+
+  <div id="doneView" class="done hidden">
+    <h2>Terkirim.</h2>
+    <p>Temuanmu akan muncul di layar. Terima kasih sudah bercerita.</p>
+    <button type="button" class="primary" id="againBtn">Kirim temuan lain</button>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
