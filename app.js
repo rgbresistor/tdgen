@@ -6,8 +6,7 @@ const $ = (id) => document.getElementById(id);
 
 // Validasi config + buat klien Supabase
 let sb = null;
-const configured =
-  typeof SUPABASE_URL !== 'undefined' && /^https:\/\/.+\.supabase\.co\/?$/.test(SUPABASE_URL) && SUPABASE_ANON_KEY.length > 100;
+const configured = typeof SUPABASE_URL !== 'undefined' && /^https:\/\/.+\.supabase\.co\/?$/.test(SUPABASE_URL) && SUPABASE_ANON_KEY.length > 100;
 if (configured) {
   try {
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -23,6 +22,10 @@ if (!sb) {
 let photoBlob = null, photoExt = 'jpg';
 let audioBlob = null, audioType = 'audio/wav', audioExt = 'wav';
 let photoUrl = null;
+
+// Variabel Penyimpan Identitas User
+let currentUserName = '';
+let currentUserId = '';
 
 function setMsg(text, isError) {
   const el = $('msg');
@@ -46,15 +49,12 @@ async function requestInitialPermissions() {
 
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     try {
-      // 1. Minta izin Kamera
       try {
         const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
         videoStream.getTracks().forEach((track) => track.stop());
       } catch (vErr) {
         console.warn('Izin kamera ditolak/dilewati:', vErr);
       }
-
-      // 2. Minta izin Mikrofon
       try {
         const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         audioStream.getTracks().forEach((track) => track.stop());
@@ -64,14 +64,50 @@ async function requestInitialPermissions() {
     } catch (err) {
       console.warn('Gagal meminta izin:', err);
     } finally {
-      const modal = $('permissionModal');
-      if (modal) modal.classList.add('hidden');
+      // Beralih ke form identitas nama & ID
+      if ($('modalStepPermission')) $('modalStepPermission').classList.add('hidden');
+      if ($('modalStepIdentity')) $('modalStepIdentity').classList.remove('hidden');
     }
   } else {
-    const modal = $('permissionModal');
-    if (modal) modal.classList.add('hidden');
+    if ($('modalStepPermission')) $('modalStepPermission').classList.add('hidden');
+    if ($('modalStepIdentity')) $('modalStepIdentity').classList.remove('hidden');
     setPhotoMsg('Browser tidak mendukung WebRTC. Gunakan kamera bawaan HP.');
   }
+}
+
+function saveUserIdentity() {
+  const nameInput = $('userNameInput');
+  const idInput = $('userIdInput');
+  const errEl = $('modalErr');
+
+  const nameVal = nameInput ? nameInput.value.trim() : '';
+  const idVal = idInput ? idInput.value.trim().toUpperCase() : '';
+
+  if (!nameVal) {
+    if (errEl) errEl.textContent = 'Harap isi namamu terlebih dahulu.';
+    return;
+  }
+
+  // Daftar 50 ID Pengguna Hardcode yang diizinkan (Kombinasi 3 karakter)
+  const validIDs = [
+    "A1X", "B2Y", "C3Z", "D4A", "E5B", "F6C", "G7D", "H8E", "I9F", "J0G",
+    "K1H", "L2I", "M3J", "N4K", "O5L", "P6M", "Q7N", "R8O", "S9P", "T0Q",
+    "U1R", "V2S", "W3T", "X4U", "Y5V", "Z6W", "A7X", "B8Y", "C9Z", "D0A",
+    "E1B", "F2C", "G3D", "H4E", "I5F", "J6G", "K7H", "L8I", "M9J", "N0K",
+    "O1L", "P2M", "Q3N", "R4O", "S5P", "T6Q", "U7R", "V8S", "W9T", "X0U"
+  ];
+
+  if (!validIDs.includes(idVal)) {
+    if (errEl) errEl.textContent = 'ID Pengguna tidak terdaftar. Periksa kembali ID-mu.';
+    return;
+  }
+
+  // Simpan jika valid
+  currentUserName = nameVal;
+  currentUserId = idVal;
+
+  const modal = $('permissionModal');
+  if (modal) modal.classList.add('hidden');
 }
 
 /* ---------------- Foto ---------------- */
@@ -197,7 +233,7 @@ function snapPhoto() {
   }, 'image/jpeg', 0.85);
 }
 
-/* ---------------- Audio WAV Encoder & Converter ---------------- */
+/* ---------------- Audio WAV Encoder ---------------- */
 function writeString(view, offset, string) {
   for (let i = 0; i < string.length; i++) {
     view.setUint8(offset + i, string.charCodeAt(i));
@@ -216,12 +252,10 @@ function bufferToWav(buffer) {
   const outBuffer = new ArrayBuffer(headerLength + bufferLength);
   const view = new DataView(outBuffer);
 
-  /* RIFF WAVE Header */
   writeString(view, 0, 'RIFF');
   view.setUint32(4, 36 + bufferLength, true);
   writeString(view, 8, 'WAVE');
 
-  /* FMT Sub-chunk */
   writeString(view, 12, 'fmt ');
   view.setUint32(16, 16, true);
   view.setUint16(20, format, true);
@@ -231,11 +265,9 @@ function bufferToWav(buffer) {
   view.setUint16(32, numChannels * 2, true);
   view.setUint16(34, bitDepth, true);
 
-  /* Data Sub-chunk */
   writeString(view, 36, 'data');
   view.setUint32(40, bufferLength, true);
 
-  /* Tulis PCM 16-bit Samples */
   let offset = 44;
   for (let i = 0; i < samples.length; i++, offset += 2) {
     const s = Math.max(-1, Math.min(1, samples[i]));
@@ -302,12 +334,10 @@ async function startRec() {
     const rawBlob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
 
     try {
-      // Decode audio WebM/MP4 ke AudioBuffer
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const arrayBuffer = await rawBlob.arrayBuffer();
       const decodedBuffer = await audioCtx.decodeAudioData(arrayBuffer);
 
-      // Encode ke WAV
       audioBlob = bufferToWav(decodedBuffer);
       audioType = 'audio/wav';
       audioExt = 'wav';
@@ -366,7 +396,16 @@ async function submit() {
     let foto_url = null, audio_url = null;
     if (photoBlob) foto_url = await uploadFile(id + '/foto.' + photoExt, photoBlob, photoBlob.type || 'image/jpeg');
     if (audioBlob) audio_url = await uploadFile(id + '/suara.' + audioExt, audioBlob, audioType || 'audio/wav');
-    const { error } = await sb.from('entries').insert({ teks: teks || null, foto_url, audio_url });
+    
+    // Insert data dengan menyertakan nama dan user_id
+    const { error } = await sb.from('entries').insert({ 
+      nama: currentUserName || null,
+      user_id: currentUserId || null,
+      teks: teks || null, 
+      foto_url, 
+      audio_url 
+    });
+    
     if (error) throw error;
     if ($('formView')) $('formView').classList.add('hidden');
     if ($('doneView')) $('doneView').classList.remove('hidden');
@@ -383,6 +422,9 @@ async function submit() {
 document.addEventListener('DOMContentLoaded', () => {
   const modalBtn = $('grantPermissionBtn');
   if (modalBtn) modalBtn.addEventListener('click', requestInitialPermissions);
+
+  const saveIdBtn = $('saveIdentityBtn');
+  if (saveIdBtn) saveIdBtn.addEventListener('click', saveUserIdentity);
 
   // Foto listeners
   const pi = $('photoInput'); if (pi) pi.addEventListener('change', handlePhoto);
