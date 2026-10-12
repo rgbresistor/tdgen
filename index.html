@@ -11,6 +11,17 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+<!-- Modal Onboarding Pop-up untuk Minta Izin Kamera & Mikrofon -->
+<div id="permissionModal" class="modal-overlay">
+  <div class="modal-card">
+    <div class="tape" aria-hidden="true"></div>
+    <h2>Selamat Datang!</h2>
+    <p>Aplikasi ini membutuhkan akses <strong>Kamera</strong> dan <strong>Mikrofon</strong> untuk mengambil foto serta merekam cerita suara dalam instalasi interaktif ini.</p>
+    <button type="button" class="primary full" id="grantPermissionBtn">Izinkan & Mulai</button>
+  </div>
+</div>
+
 <main>
   <header>
     <div class="tape" aria-hidden="true"></div>
@@ -72,7 +83,7 @@
         </div>
       </div>
 
-      <!-- Cadangan bila browser tidak mengizinkan rekam langsung (misalnya HTTP biasa) -->
+      <!-- Cadangan bila browser tidak mengizinkan rekam langsung -->
       <div class="row hidden" id="recFallback">
         <button type="button" id="audioFallbackBtn">Rekam atau pilih audio</button>
         <input type="file" id="audioInput" accept="audio/*" capture>

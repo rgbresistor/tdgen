@@ -4,7 +4,7 @@ const MAX_IMG_PX = 1600;
 
 const $ = (id) => document.getElementById(id);
 
-// Validasi config + buat klien Supabase (tidak boleh membuat script berhenti)
+// Validasi config + buat klien Supabase
 let sb = null;
 const configured =
   /^https:\/\/.+\.supabase\.co\/?$/.test(SUPABASE_URL) && SUPABASE_ANON_KEY.length > 100;
@@ -31,6 +31,39 @@ function uid() {
   if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
   return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
 }
+
+/* ---------------- Modal & Request Izin Awal ---------------- */
+async function requestInitialPermissions() {
+  const btn = $('grantPermissionBtn');
+  btn.disabled = true;
+  btn.textContent = 'Meminta izin...';
+
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    try {
+      // Minta izin Kamera & Mikrofon sekaligus lewat dialog browser resmi
+      const initStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+      });
+
+      // Begitu disetujui, matikan stream sementara
+      initStream.getTracks().forEach((track) => track.stop());
+
+      // Sembunyikan modal
+      $('permissionModal').classList.add('hidden');
+    } catch (err) {
+      console.warn('Izin ditolak atau dibatasi:', err);
+      $('permissionModal').classList.add('hidden');
+      setPhotoMsg('Akses kamera/mikrofon belum diizinkan secara penuh. Kamu bisa menggunakan opsi Kamera Bawaan HP.');
+    }
+  } else {
+    $('permissionModal').classList.add('hidden');
+  }
+}
+
+// Pasang event listener ke tombol modal
+const grantBtn = $('grantPermissionBtn');
+if (grantBtn) grantBtn.addEventListener('click', requestInitialPermissions);
 
 /* ---------------- Foto ---------------- */
 function compressImage(file) {
@@ -68,7 +101,6 @@ async function handlePhoto(e) {
     photoBlob = await compressImage(file);
     photoExt = 'jpg';
   } catch (err) {
-    // Bila kompres gagal (misalnya format HEIC), kirim file aslinya
     photoBlob = file;
     photoExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
   }
@@ -96,7 +128,7 @@ async function openCamera() {
   setMsg('');
   setPhotoMsg('');
   if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
-    $('photoInput').click(); // cara lama sebagai cadangan
+    $('photoInput').click();
     return;
   }
   try {
@@ -105,7 +137,6 @@ async function openCamera() {
         video: { facingMode: { ideal: 'environment' } }, audio: false
       });
     } catch (e1) {
-      // Coba lagi tanpa syarat apa pun bila perangkat menolak pengaturan di atas
       if (e1 && (e1.name === 'OverconstrainedError' || e1.name === 'NotFoundError')) {
         camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       } else { throw e1; }
@@ -115,7 +146,7 @@ async function openCamera() {
     console.error('Kamera gagal:', err);
     let why = 'Kamera tidak bisa dibuka (' + name + ').';
     if (name === 'NotAllowedError' || name === 'SecurityError') {
-      why = 'Izin kamera ditolak (' + name + '). Aktifkan izin Kamera untuk situs ini, dan untuk aplikasi Chrome di Pengaturan Android.';
+      why = 'Izin kamera ditolak (' + name + '). Aktifkan izin Kamera untuk situs ini di pengaturan browser.';
     } else if (name === 'NotReadableError') {
       why = 'Kamera sedang dipakai aplikasi lain (' + name + '). Tutup aplikasi kamera lain lalu coba lagi.';
     } else if (name === 'NotFoundError') {
@@ -249,7 +280,6 @@ $('recStop').addEventListener('click', stopRec);
 $('recAgain').addEventListener('click', () => { clearAudio(); startRec(); });
 $('recRemove').addEventListener('click', clearAudio);
 
-// Cadangan: pilih/rekam file audio lewat aplikasi bawaan HP
 $('audioFallbackBtn').addEventListener('click', () => $('audioInput').click());
 $('audioInput').addEventListener('change', (e) => {
   const file = e.target.files[0];
